@@ -52,7 +52,7 @@ export async function createLoan(data: { bookId: string; studentId: string; retu
       where: { id: data.bookId }
     });
     
-    if (!book || !book.available) {
+    if (!book || book.quantity <= 0) {
       return { success: false, error: "Livro não está disponível para empréstimo" };
     }
     
