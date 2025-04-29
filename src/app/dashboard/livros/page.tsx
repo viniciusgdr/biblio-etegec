@@ -39,8 +39,8 @@ export default function LivrosPage() {
     title: string
     author: string
     year: string
-    available: boolean
     quantity: number
+    available: number
   }[]>([])
   const [formBook, setFormBook] = useState<{
     id: string
@@ -267,23 +267,25 @@ export default function LivrosPage() {
                 <p className="text-center text-muted-foreground">Nenhum livro cadastrado.</p>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground">
+                  <div className="grid grid-cols-7 gap-4 text-sm font-medium text-muted-foreground">
                     <div>ISBN</div>
                     <div>Título</div>
                     <div>Autor</div>
                     <div>Ano</div>
-                    <div>Quantidade</div>
+                    <div>Quantidade Total</div>
+                    <div>Quantidade Disponível</div>
                     <div>Ações</div>
                   </div>
                   <Separator />
                   <div className="max-h-[500px] space-y-2 overflow-auto">
                     {books.map((book) => (
-                      <div key={book.id} className="grid grid-cols-6 items-center gap-4 text-sm">
+                      <div key={book.id} className="grid grid-cols-7 items-center gap-4 text-sm">
                         <div>{book.isbn}</div>
                         <div>{book.title}</div>
                         <div>{book.author}</div>
                         <div>{book.year}</div>
                         <div>{book.quantity}</div>
+                        <div>{book.available}</div>
                         <div className="flex gap-2">
                           <Button 
                             variant="ghost" 

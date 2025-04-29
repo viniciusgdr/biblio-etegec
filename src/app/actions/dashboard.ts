@@ -13,7 +13,7 @@ export async function getDashboardStats() {
     });
     
     const availableBooks = await prisma.book.count({
-      where: { quantity: { gt: 0 } }
+      where: { available: { gt: 0 } }
     });
 
     // Total de alunos

@@ -52,7 +52,7 @@ export async function createLoan(data: { bookId: string; studentId: string; retu
       where: { id: data.bookId }
     });
     
-    if (!book || book.quantity <= 0) {
+    if (!book || book.available <= 0) {
       return { success: false, error: "Livro não está disponível para empréstimo" };
     }
     
@@ -73,7 +73,7 @@ export async function createLoan(data: { bookId: string; studentId: string; retu
     // Atualizar o status do livro
     await prisma.book.update({
       where: { id: data.bookId },
-      data: { quantity: { decrement: 1 } }
+      data: { available: { decrement: 1 } }
     });
     
     revalidatePath('/dashboard/emprestimos');
@@ -115,7 +115,7 @@ export async function returnLoan(id: string) {
     await prisma.book.update({
       where: { id: loan.bookId },
       data: { 
-        quantity: { increment: 1 }
+        available: { increment: 1 }
       }
     });
     
@@ -147,7 +147,7 @@ export async function cancelLoan(id: string) {
     await prisma.book.update({
       where: { id: loan.bookId },
       data: { 
-        quantity: { increment: 1 }
+        available: { increment: 1 }
       }
     });
     
@@ -162,7 +162,7 @@ export async function cancelLoan(id: string) {
 export async function searchBooks(query: string) {
   try {
     let whereCondition: any = {
-      quantity: { gt: 0 }
+      available: { gt: 0 }
     };
 
     // Se houver uma query, adiciona-se filtros de busca
@@ -177,7 +177,7 @@ export async function searchBooks(query: string) {
             ]
           },
           { 
-            quantity: { gt: 0 }
+            available: { gt: 0 }
           }
         ]
       };
