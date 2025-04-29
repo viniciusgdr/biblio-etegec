@@ -34,6 +34,14 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { createBook, deleteBook, getBookByIsbn, getBooks, updateBook } from "@/app/actions/book"
 import { cancelLoan, getActiveBookLoans, returnLoan } from "@/app/actions/loan"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function LivrosPage() {
   const [books, setBooks] = useState<{
@@ -71,6 +79,9 @@ export default function LivrosPage() {
   const [totalItems, setTotalItems] = useState(0)
   const itemsPerPage = 10
   
+  // Estado para filtro de disponibilidade
+  const [availabilityFilter, setAvailabilityFilter] = useState("all")
+  
   // Efeito para debounce da busca
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -81,11 +92,11 @@ export default function LivrosPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
   
-  // Efeito para carregar livros com paginação e busca
+  // Efeito para carregar livros com paginação, busca e filtro de disponibilidade
   useEffect(() => {
     async function loadBooks() {
       setIsLoading(true)
-      const result = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+      const result = await getBooks(debouncedQuery, currentPage, itemsPerPage, availabilityFilter === "available")
       if (result.success) {
         setBooks(result.data || [])
         if (result.pagination) {
@@ -99,7 +110,7 @@ export default function LivrosPage() {
     }
     
     loadBooks()
-  }, [debouncedQuery, currentPage])
+  }, [debouncedQuery, currentPage, availabilityFilter])
 
   // Função para lidar com a mudança de página
   const handlePageChange = (page: number) => {
@@ -226,7 +237,7 @@ export default function LivrosPage() {
       
       if (result.success) {
         // Recarregar os livros para garantir que temos dados atualizados
-        const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+        const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage, availabilityFilter === "available")
         if (booksResult.success) {
           setBooks(booksResult.data || [])
           if (booksResult.pagination) {
@@ -257,7 +268,7 @@ export default function LivrosPage() {
       
       if (result.success) {
         // Recarregar os livros para garantir que temos dados atualizados
-        const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+        const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage, availabilityFilter === "available")
         if (booksResult.success) {
           setBooks(booksResult.data || [])
           if (booksResult.pagination) {
@@ -278,7 +289,7 @@ export default function LivrosPage() {
     
     if (result.success) {
       // Recarregar os livros para garantir que temos dados atualizados
-      const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+      const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage, availabilityFilter === "available")
       if (booksResult.success) {
         setBooks(booksResult.data || [])
         if (booksResult.pagination) {
@@ -465,8 +476,8 @@ export default function LivrosPage() {
               <CardTitle>Livros Cadastrados</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Campo de busca */}
-              <div className="flex mb-4">
+              {/* Campo de busca e filtro */}
+              <div className="flex mb-4 gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -476,13 +487,29 @@ export default function LivrosPage() {
                     className="pl-8"
                   />
                 </div>
+                <Select 
+                  value={availabilityFilter} 
+                  onValueChange={setAvailabilityFilter}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="all">Todos os livros</SelectItem>
+                      <SelectItem value="available">Somente disponíveis</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
               
               {isLoading ? (
                 <p className="text-center text-muted-foreground">Carregando livros...</p>
               ) : books.length === 0 ? (
                 <p className="text-center text-muted-foreground">
-                  {debouncedQuery ? "Nenhum livro encontrado para esta busca." : "Nenhum livro cadastrado."}
+                  {debouncedQuery || availabilityFilter === "available" 
+                    ? "Nenhum livro encontrado para estes critérios." 
+                    : "Nenhum livro cadastrado."}
                 </p>
               ) : (
                 <div className="space-y-4">

@@ -4,17 +4,29 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getBooks(query = "", page = 1, limit = 10) {
+export async function getBooks(query = "", page = 1, limit = 10, onlyAvailable = false) {
   try {
     const skip = (page - 1) * limit;
     
     let whereCondition: any = {};
+    
+    // Adiciona condição para filtrar por disponibilidade
+    if (onlyAvailable) {
+      whereCondition.available = { gt: 0 };
+    }
+    
     if (query && query.trim() !== "") {
       whereCondition = {
-        OR: [
-          { title: { contains: query, mode: 'insensitive' } },
-          { author: { contains: query, mode: 'insensitive' } },
-          { isbn: { contains: query, mode: 'insensitive' } }
+        AND: [
+          {
+            OR: [
+              { title: { contains: query, mode: 'insensitive' } },
+              { author: { contains: query, mode: 'insensitive' } },
+              { isbn: { contains: query, mode: 'insensitive' } }
+            ]
+          },
+          // Manter filtro de disponibilidade se estiver ativo
+          ...(onlyAvailable ? [{ available: { gt: 0 } }] : [])
         ]
       };
     }
@@ -135,5 +147,64 @@ export async function getBookByIsbn(isbn: string) {
   } catch (error) {
     console.error("Failed to fetch book:", error);
     return { success: false, error: "Failed to find book" };
+  }
+}
+
+export async function getPublicAvailableBooks(query = "", page = 1, limit = 10) {
+  try {
+    const skip = (page - 1) * limit;
+    
+    let whereCondition: any = {
+    };
+    
+    if (query && query.trim() !== "") {
+      whereCondition = {
+        AND: [
+          {
+            OR: [
+              { title: { contains: query, mode: 'insensitive' } },
+              { author: { contains: query, mode: 'insensitive' } },
+              { isbn: { contains: query, mode: 'insensitive' } }
+            ]
+          },
+        ]
+      };
+    }
+    
+    const [books, total] = await Promise.all([
+      prisma.book.findMany({
+        where: whereCondition,
+        skip,
+        take: limit,
+        orderBy: {
+          title: 'asc'
+        },
+        select: {
+          id: true,
+          isbn: true,
+          title: true,
+          author: true,
+          year: true,
+          available: true,
+        }
+      }),
+      prisma.book.count({
+        where: whereCondition
+      })
+    ]);
+    
+    return { 
+      success: true, 
+      data: books,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      } 
+    };
+  } catch (error) {
+    console.error("Failed to fetch public books:", error);
+    return { success: false, error: "Failed to load books" };
   }
 }

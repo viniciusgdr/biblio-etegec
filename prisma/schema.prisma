@@ -33,6 +33,7 @@ model Book {
   updatedAt DateTime @updatedAt
   
   loans Loan[]
+  orderLoans OrderLoan[]
   
   @@map("books")
 }
@@ -47,6 +48,7 @@ model Student {
   updatedAt DateTime @updatedAt
   
   loans Loan[]
+  orderLoans OrderLoan[]
   
   @@map("students")
 }
@@ -68,4 +70,21 @@ model Loan {
   updatedAt DateTime @updatedAt
   
   @@map("loans")
+}
+
+model OrderLoan {
+  id             String   @id @default(cuid())
+  orderDate      DateTime @default(now())
+  returnDueDate  DateTime
+  
+  bookId  String
+  book    Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("order_loans")
 }
