@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { PlusCircle, Pencil, Trash2 } from "lucide-react"
+import { PlusCircle, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -49,12 +49,35 @@ export default function AlunosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
+  // Estados para busca e paginação
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const itemsPerPage = 10
+  
+  // Efeito para debounce da busca
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery)
+      setCurrentPage(1) // Resetar para primeira página ao buscar
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+  
+  // Efeito para carregar alunos com paginação e busca
   useEffect(() => {
     async function loadStudents() {
       setIsLoading(true)
-      const result = await getStudents()
+      const result = await getStudents(debouncedQuery, currentPage, itemsPerPage)
       if (result.success) {
         setStudents(result.data || [])
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages)
+          setTotalItems(result.pagination.total)
+        }
       } else {
         toast.error("Erro ao carregar alunos.")
       }
@@ -62,7 +85,13 @@ export default function AlunosPage() {
     }
     
     loadStudents()
-  }, [])
+  }, [debouncedQuery, currentPage])
+
+  // Função para lidar com a mudança de página
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return
+    setCurrentPage(page)
+  }
 
   const openModal = (student: {
     id: string
@@ -74,7 +103,7 @@ export default function AlunosPage() {
       setFormStudent(student)
       setIsEditMode(true)
     } else {
-      setFormStudent({ id: "", enrollment: "", name: "", phone: "" })
+      setFormStudent({ id: "", enrollment: "", name: "", phone: null })
       setIsEditMode(false)
     }
     setIsModalOpen(true)
@@ -99,7 +128,15 @@ export default function AlunosPage() {
       })
       
       if (result.success) {
-        setStudents(students.map(s => s.id === formStudent.id && result.data ? result.data : s))
+        // Recarregar os alunos para garantir que temos dados atualizados
+        const studentsResult = await getStudents(debouncedQuery, currentPage, itemsPerPage)
+        if (studentsResult.success) {
+          setStudents(studentsResult.data || [])
+          if (studentsResult.pagination) {
+            setTotalPages(studentsResult.pagination.totalPages)
+            setTotalItems(studentsResult.pagination.total)
+          }
+        }
         toast.success("Aluno atualizado com sucesso!")
         closeModal()
       } else {
@@ -120,8 +157,14 @@ export default function AlunosPage() {
       })
       
       if (result.success) {
-        if (result.data) {
-          setStudents([...students, result.data])
+        // Recarregar os alunos para garantir que temos dados atualizados
+        const studentsResult = await getStudents(debouncedQuery, currentPage, itemsPerPage)
+        if (studentsResult.success) {
+          setStudents(studentsResult.data || [])
+          if (studentsResult.pagination) {
+            setTotalPages(studentsResult.pagination.totalPages)
+            setTotalItems(studentsResult.pagination.total)
+          }
         }
         toast.success("Aluno cadastrado com sucesso!")
         closeModal()
@@ -135,11 +178,78 @@ export default function AlunosPage() {
     const result = await deleteStudent(id)
     
     if (result.success) {
-      setStudents(students.filter(student => student.id !== id))
-      toast.error("Aluno apagado com sucesso!")
+      // Recarregar os alunos para garantir que temos dados atualizados
+      const studentsResult = await getStudents(debouncedQuery, currentPage, itemsPerPage)
+      if (studentsResult.success) {
+        setStudents(studentsResult.data || [])
+        if (studentsResult.pagination) {
+          setTotalPages(studentsResult.pagination.totalPages)
+          setTotalItems(studentsResult.pagination.total)
+        }
+      }
+      toast.success("Aluno apagado com sucesso!")
     } else {
       toast.error(result.error || "Erro ao apagar aluno.")
     }
+  }
+  
+  // Renderizar paginação
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+    
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-muted-foreground">
+          Mostrando {students.length} de {totalItems} alunos
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let pageNumber: number
+            
+            // Lógica para mostrar páginas ao redor da atual
+            if (totalPages <= 5) {
+              pageNumber = i + 1
+            } else if (currentPage <= 3) {
+              pageNumber = i + 1
+            } else if (currentPage >= totalPages - 2) {
+              pageNumber = totalPages - 4 + i
+            } else {
+              pageNumber = currentPage - 2 + i
+            }
+            
+            return (
+              <Button
+                key={pageNumber}
+                variant={currentPage === pageNumber ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(pageNumber)}
+                className="w-8 h-8 p-0"
+              >
+                {pageNumber}
+              </Button>
+            )
+          })}
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -225,10 +335,25 @@ export default function AlunosPage() {
               <CardTitle>Alunos Cadastrados</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Campo de busca */}
+              <div className="flex mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome ou matrícula..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              
               {isLoading ? (
                 <p className="text-center text-muted-foreground">Carregando alunos...</p>
               ) : students.length === 0 ? (
-                <p className="text-center text-muted-foreground">Nenhum aluno cadastrado.</p>
+                <p className="text-center text-muted-foreground">
+                  {debouncedQuery ? "Nenhum aluno encontrado para esta busca." : "Nenhum aluno cadastrado."}
+                </p>
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-4 gap-4 text-sm font-medium text-muted-foreground">
@@ -265,6 +390,9 @@ export default function AlunosPage() {
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Paginação */}
+                  {renderPagination()}
                 </div>
               )}
             </CardContent>

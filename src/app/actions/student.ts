@@ -1,17 +1,47 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getStudents() {
+export async function getStudents(query = "", page = 1, limit = 10) {
   try {
-    const students = await prisma.student.findMany({
-      orderBy: {
-        name: 'asc'
-      }
-    });
+    const skip = (page - 1) * limit;
     
-    return { success: true, data: students };
+    let whereCondition: any = {};
+    if (query && query.trim() !== "") {
+      whereCondition = {
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { enrollment: { contains: query, mode: 'insensitive' } }
+        ]
+      };
+    }
+    
+    const [students, total] = await Promise.all([
+      prisma.student.findMany({
+        where: whereCondition,
+        skip,
+        take: limit,
+        orderBy: {
+          name: 'asc'
+        }
+      }),
+      prisma.student.count({
+        where: whereCondition
+      })
+    ]);
+    
+    return { 
+      success: true, 
+      data: students,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      } 
+    };
   } catch (error) {
     console.error("Failed to fetch students:", error);
     return { success: false, error: "Failed to load students" };

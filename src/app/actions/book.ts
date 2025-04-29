@@ -1,17 +1,48 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getBooks() {
+export async function getBooks(query = "", page = 1, limit = 10) {
   try {
-    const books = await prisma.book.findMany({
-      orderBy: {
-        title: 'asc'
-      }
-    });
+    const skip = (page - 1) * limit;
     
-    return { success: true, data: books };
+    let whereCondition: any = {};
+    if (query && query.trim() !== "") {
+      whereCondition = {
+        OR: [
+          { title: { contains: query, mode: 'insensitive' } },
+          { author: { contains: query, mode: 'insensitive' } },
+          { isbn: { contains: query, mode: 'insensitive' } }
+        ]
+      };
+    }
+    
+    const [books, total] = await Promise.all([
+      prisma.book.findMany({
+        where: whereCondition,
+        skip,
+        take: limit,
+        orderBy: {
+          title: 'asc'
+        }
+      }),
+      prisma.book.count({
+        where: whereCondition
+      })
+    ]);
+    
+    return { 
+      success: true, 
+      data: books,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      } 
+    };
   } catch (error) {
     console.error("Failed to fetch books:", error);
     return { success: false, error: "Failed to load books" };

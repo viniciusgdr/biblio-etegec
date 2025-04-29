@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { PlusCircle, Pencil, Trash2, BookOpen } from "lucide-react"
+import { PlusCircle, Pencil, Trash2, BookOpen, Search, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -63,12 +63,35 @@ export default function LivrosPage() {
   const [isLoansModalOpen, setIsLoansModalOpen] = useState(false)
   const [isLoadingLoans, setIsLoadingLoans] = useState(false)
   
+  // Estados para busca e paginação
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const itemsPerPage = 10
+  
+  // Efeito para debounce da busca
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery)
+      setCurrentPage(1) // Resetar para primeira página ao buscar
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+  
+  // Efeito para carregar livros com paginação e busca
   useEffect(() => {
     async function loadBooks() {
       setIsLoading(true)
-      const result = await getBooks()
+      const result = await getBooks(debouncedQuery, currentPage, itemsPerPage)
       if (result.success) {
         setBooks(result.data || [])
+        if (result.pagination) {
+          setTotalPages(result.pagination.totalPages)
+          setTotalItems(result.pagination.total)
+        }
       } else {
         toast.error("Erro ao carregar livros.")
       }
@@ -76,7 +99,13 @@ export default function LivrosPage() {
     }
     
     loadBooks()
-  }, [])
+  }, [debouncedQuery, currentPage])
+
+  // Função para lidar com a mudança de página
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage) return
+    setCurrentPage(page)
+  }
 
   const openModal = (book: {
     id: string
@@ -196,7 +225,15 @@ export default function LivrosPage() {
       })
       
       if (result.success) {
-        setBooks(books.map(b => b.id === formBook.id && result.data ? result.data : b))
+        // Recarregar os livros para garantir que temos dados atualizados
+        const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+        if (booksResult.success) {
+          setBooks(booksResult.data || [])
+          if (booksResult.pagination) {
+            setTotalPages(booksResult.pagination.totalPages)
+            setTotalItems(booksResult.pagination.total)
+          }
+        }
         toast.success("Livro atualizado com sucesso!")
         closeModal()
       } else {
@@ -219,8 +256,14 @@ export default function LivrosPage() {
       })
       
       if (result.success) {
-        if (result.data) {
-          setBooks([...books, result.data])
+        // Recarregar os livros para garantir que temos dados atualizados
+        const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+        if (booksResult.success) {
+          setBooks(booksResult.data || [])
+          if (booksResult.pagination) {
+            setTotalPages(booksResult.pagination.totalPages)
+            setTotalItems(booksResult.pagination.total)
+          }
         }
         toast.success("Livro cadastrado com sucesso!")
         closeModal()
@@ -234,7 +277,15 @@ export default function LivrosPage() {
     const result = await deleteBook(id)
     
     if (result.success) {
-      setBooks(books.filter(book => book.id !== id))
+      // Recarregar os livros para garantir que temos dados atualizados
+      const booksResult = await getBooks(debouncedQuery, currentPage, itemsPerPage)
+      if (booksResult.success) {
+        setBooks(booksResult.data || [])
+        if (booksResult.pagination) {
+          setTotalPages(booksResult.pagination.totalPages)
+          setTotalItems(booksResult.pagination.total)
+        }
+      }
       toast.success("Livro apagado com sucesso!")
     } else {
       toast.error(result.error || "Erro ao apagar livro.")
@@ -244,6 +295,65 @@ export default function LivrosPage() {
   // Função para verificar se um livro tem empréstimos ativos
   const hasActiveLoans = (book: any) => {
     return book.quantity > book.available
+  }
+
+  // Renderizar paginação
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+    
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-muted-foreground">
+          Mostrando {books.length} de {totalItems} livros
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let pageNumber: number
+            
+            // Lógica para mostrar páginas ao redor da atual
+            if (totalPages <= 5) {
+              pageNumber = i + 1
+            } else if (currentPage <= 3) {
+              pageNumber = i + 1
+            } else if (currentPage >= totalPages - 2) {
+              pageNumber = totalPages - 4 + i
+            } else {
+              pageNumber = currentPage - 2 + i
+            }
+            
+            return (
+              <Button
+                key={pageNumber}
+                variant={currentPage === pageNumber ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(pageNumber)}
+                className="w-8 h-8 p-0"
+              >
+                {pageNumber}
+              </Button>
+            )
+          })}
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -355,10 +465,25 @@ export default function LivrosPage() {
               <CardTitle>Livros Cadastrados</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Campo de busca */}
+              <div className="flex mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por título, autor ou ISBN..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              
               {isLoading ? (
                 <p className="text-center text-muted-foreground">Carregando livros...</p>
               ) : books.length === 0 ? (
-                <p className="text-center text-muted-foreground">Nenhum livro cadastrado.</p>
+                <p className="text-center text-muted-foreground">
+                  {debouncedQuery ? "Nenhum livro encontrado para esta busca." : "Nenhum livro cadastrado."}
+                </p>
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-7 gap-4 text-sm font-medium text-muted-foreground">
@@ -415,6 +540,9 @@ export default function LivrosPage() {
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Paginação */}
+                  {renderPagination()}
                 </div>
               )}
             </CardContent>
