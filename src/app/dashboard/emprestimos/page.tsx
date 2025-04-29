@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
-import { ArrowRightLeft, BookCheck, Calendar, X } from "lucide-react"
+import { ArrowRightLeft, BookCheck, Calendar, ChevronDown, ChevronUp, Search, X } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -229,6 +229,89 @@ export default function EmprestimosPage() {
     }
   };
 
+  // Estados para filtragem e ordenação
+  const [filterText, setFilterText] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "late" | "ontime">("all");
+  const [sortField, setSortField] = useState<string>("returnDueDate");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Função para ordenar os empréstimos
+  const sortLoans = (loans: any[], field: string, direction: "asc" | "desc") => {
+    return [...loans].sort((a, b) => {
+      let valA, valB;
+      
+      // Tratamento especial para campos aninhados
+      if (field === "book.title") {
+        valA = a.book.title;
+        valB = b.book.title;
+      } else if (field === "student.name") {
+        valA = a.student.name;
+        valB = b.student.name;
+      } else {
+        valA = a[field];
+        valB = b[field];
+      }
+
+      // Tratamento para datas
+      if (field === "loanDate" || field === "returnDueDate") {
+        valA = new Date(valA);
+        valB = new Date(valB);
+      }
+
+      if (valA < valB) return direction === "asc" ? -1 : 1;
+      if (valA > valB) return direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  };
+  
+  // Função para alternar a ordenação ao clicar no cabeçalho
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      // Se já está ordenando por este campo, inverte a direção
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Caso contrário, ordena por este campo em ordem ascendente
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  // Filtra e ordena os empréstimos para exibição
+  const getFilteredAndSortedLoans = () => {
+    let filtered = [...activeLoans];
+    
+    // Aplicar filtro de status
+    if (statusFilter === "late") {
+      filtered = filtered.filter(loan => isLoanLate(loan));
+    } else if (statusFilter === "ontime") {
+      filtered = filtered.filter(loan => !isLoanLate(loan));
+    }
+    
+    // Aplicar filtro de texto
+    if (filterText) {
+      const searchTerm = filterText.toLowerCase();
+      filtered = filtered.filter(loan => 
+        loan.book.title.toLowerCase().includes(searchTerm) || 
+        loan.book.author.toLowerCase().includes(searchTerm) || 
+        loan.book.isbn.toLowerCase().includes(searchTerm) || 
+        loan.student.name.toLowerCase().includes(searchTerm) || 
+        loan.student.enrollment.toLowerCase().includes(searchTerm)
+      );
+    }
+    
+    // Ordenar os resultados
+    return sortLoans(filtered, sortField, sortDirection);
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return null;
+    return sortDirection === "asc" ? (
+      <ChevronUp className="h-4 w-4 ml-1" />
+    ) : (
+      <ChevronDown className="h-4 w-4 ml-1" />
+    );
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -433,6 +516,42 @@ export default function EmprestimosPage() {
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Empréstimos Ativos</CardTitle>
+                <div className="flex flex-col sm:flex-row gap-3 mt-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Filtrar por livro, aluno ou matrícula..."
+                      className="pl-8"
+                      value={filterText}
+                      onChange={(e) => setFilterText(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    <select
+                      className="h-10 px-3 py-2 rounded-md border border-input bg-background text-sm"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as "all" | "late" | "ontime")}
+                    >
+                      <option value="all">Todos os status</option>
+                      <option value="late">Atrasados</option>
+                      <option value="ontime">Em dia</option>
+                    </select>
+                    
+                    {(filterText || statusFilter !== "all") && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          setFilterText("");
+                          setStatusFilter("all");
+                        }}
+                        title="Limpar filtros"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -442,62 +561,86 @@ export default function EmprestimosPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="grid grid-cols-6 gap-4 text-sm font-medium text-muted-foreground">
-                      <div className="col-span-2">Livro</div>
-                      <div>Aluno</div>
-                      <div>Empréstimo</div>
-                      <div>Devolução</div>
+                      <button 
+                        className="col-span-2 flex items-center hover:text-foreground" 
+                        onClick={() => handleSort("book.title")}
+                      >
+                        Livro <SortIcon field="book.title" />
+                      </button>
+                      <button 
+                        className="flex items-center hover:text-foreground" 
+                        onClick={() => handleSort("student.name")}
+                      >
+                        Aluno <SortIcon field="student.name" />
+                      </button>
+                      <button 
+                        className="flex items-center hover:text-foreground" 
+                        onClick={() => handleSort("loanDate")}
+                      >
+                        Empréstimo <SortIcon field="loanDate" />
+                      </button>
+                      <button 
+                        className="flex items-center hover:text-foreground" 
+                        onClick={() => handleSort("returnDueDate")}
+                      >
+                        Devolução <SortIcon field="returnDueDate" />
+                      </button>
                       <div></div>
                     </div>
                     <Separator />
                     <div className="max-h-[500px] space-y-3 overflow-auto">
-                      {activeLoans.map((loan) => (
-                        <div key={loan.id} className="grid grid-cols-6 items-center gap-4 text-sm">
-                          <div className="col-span-2">
-                            <div className="font-medium">{loan.book.title}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {loan.book.author} • ISBN: {loan.book.isbn}
+                      {getFilteredAndSortedLoans().length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4">Nenhum empréstimo encontrado com os filtros atuais.</p>
+                      ) : (
+                        getFilteredAndSortedLoans().map((loan) => (
+                          <div key={loan.id} className="grid grid-cols-6 items-center gap-4 text-sm">
+                            <div className="col-span-2">
+                              <div className="font-medium">{loan.book.title}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {loan.book.author} • ISBN: {loan.book.isbn}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="font-medium">{loan.student.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Matrícula: {loan.student.enrollment}
+                              </div>
+                            </div>
+                            <div className="text-muted-foreground">
+                              {new Date(loan.loanDate).toLocaleDateString('pt-BR')}
+                            </div>
+                            <div>
+                              <div className="font-medium">
+                                {new Date(loan.returnDueDate).toLocaleDateString('pt-BR')}
+                              </div>
+                              <Badge
+                                variant={isLoanLate(loan) ? "destructive" : "outline"}
+                                className="mt-1"
+                              >
+                                {isLoanLate(loan) ? "Atrasado" : "Em dia"}
+                              </Badge>
+                            </div>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                title="Devolver"
+                                onClick={() => handleReturnLoan(loan.id)}
+                              >
+                                <BookCheck className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                title="Cancelar"
+                                onClick={() => handleCancelLoan(loan.id)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
-                          <div>
-                            <div className="font-medium">{loan.student.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Matrícula: {loan.student.enrollment}
-                            </div>
-                          </div>
-                          <div className="text-muted-foreground">
-                            {new Date(loan.loanDate).toLocaleDateString('pt-BR')}
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {new Date(loan.returnDueDate).toLocaleDateString('pt-BR')}
-                            </div>
-                            <Badge
-                              variant={isLoanLate(loan) ? "destructive" : "outline"}
-                              className="mt-1"
-                            >
-                              {isLoanLate(loan) ? "Atrasado" : "Em dia"}
-                            </Badge>
-                          </div>
-                          <div className="flex space-x-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              title="Devolver"
-                              onClick={() => handleReturnLoan(loan.id)}
-                            >
-                              <BookCheck className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              title="Cancelar"
-                              onClick={() => handleCancelLoan(loan.id)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
