@@ -1,22 +1,17 @@
 "use client"
 
 import { useState } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
 export default function SignIn() {
-  const { data: session } = useSession()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  if (session) {
-    router.push('/dashboard')
-    return null
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
