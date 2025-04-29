@@ -146,7 +146,9 @@ export async function cancelLoan(id: string) {
     // Atualizar o status do livro
     await prisma.book.update({
       where: { id: loan.bookId },
-      data: { available: true }
+      data: { 
+        quantity: { increment: 1 }
+      }
     });
     
     revalidatePath('/dashboard/emprestimos');
@@ -160,7 +162,7 @@ export async function cancelLoan(id: string) {
 export async function searchBooks(query: string) {
   try {
     let whereCondition: any = {
-      available: true
+      quantity: { gt: 0 }
     };
 
     // Se houver uma query, adiciona-se filtros de busca
@@ -174,7 +176,9 @@ export async function searchBooks(query: string) {
               { isbn: { contains: query, mode: 'insensitive' } }
             ]
           },
-          { available: true }
+          { 
+            quantity: { gt: 0 }
+          }
         ]
       };
     }
