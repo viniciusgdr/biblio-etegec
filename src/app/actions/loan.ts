@@ -45,6 +45,29 @@ export async function getAllLoans() {
   }
 }
 
+// Nova função para buscar empréstimos ativos de um livro específico
+export async function getActiveBookLoans(bookId: string) {
+  try {
+    const loans = await prisma.loan.findMany({
+      where: {
+        bookId: bookId,
+        returned: false
+      },
+      include: {
+        student: true
+      },
+      orderBy: {
+        loanDate: 'desc'
+      }
+    });
+    
+    return { success: true, data: loans };
+  } catch (error) {
+    console.error("Failed to fetch active book loans:", error);
+    return { success: false, error: "Failed to load book loans" };
+  }
+}
+
 export async function createLoan(data: { bookId: string; studentId: string; returnDueDate: Date }) {
   try {
     // Verificar se o livro está disponível

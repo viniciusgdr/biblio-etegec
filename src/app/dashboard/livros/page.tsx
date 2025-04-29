@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { PlusCircle, Pencil, Trash2 } from "lucide-react"
+import { PlusCircle, Pencil, Trash2, BookOpen } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -30,7 +31,9 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { createBook, deleteBook, getBookByIsbn, getBooks, updateBook } from "@/app/actions/book"
+import { cancelLoan, getActiveBookLoans, returnLoan } from "@/app/actions/loan"
 
 export default function LivrosPage() {
   const [books, setBooks] = useState<{
@@ -53,6 +56,12 @@ export default function LivrosPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Estado para o modal de empréstimos
+  const [selectedBookForLoans, setSelectedBookForLoans] = useState<any>(null)
+  const [bookLoans, setBookLoans] = useState<any[]>([])
+  const [isLoansModalOpen, setIsLoansModalOpen] = useState(false)
+  const [isLoadingLoans, setIsLoadingLoans] = useState(false)
   
   useEffect(() => {
     async function loadBooks() {
@@ -89,6 +98,80 @@ export default function LivrosPage() {
 
   const closeModal = () => {
     setIsModalOpen(false)
+  }
+
+  // Função para abrir o modal de empréstimos
+  const openLoansModal = async (book: any) => {
+    setSelectedBookForLoans(book)
+    setIsLoadingLoans(true)
+    setIsLoansModalOpen(true)
+    
+    try {
+      const result = await getActiveBookLoans(book.id)
+      if (result.success) {
+        setBookLoans(result.data || [])
+      } else {
+        toast.error("Erro ao carregar empréstimos do livro.")
+      }
+    } catch {
+      toast.error("Erro ao carregar empréstimos.")
+    } finally {
+      setIsLoadingLoans(false)
+    }
+  }
+
+  // Função para tratar a devolução de um livro
+  const handleReturnLoan = async (loanId: string) => {
+    const result = await returnLoan(loanId)
+    
+    if (result.success) {
+      toast.success("Livro devolvido com sucesso!")
+      // Atualizar a lista de empréstimos
+      setBookLoans(bookLoans.filter(loan => loan.id !== loanId))
+      
+      // Atualizar a lista de livros para refletir a mudança na disponibilidade
+      const updatedBooks = books.map(book => {
+        if (book.id === selectedBookForLoans?.id) {
+          return { ...book, available: book.available + 1 }
+        }
+        return book
+      })
+      setBooks(updatedBooks)
+      
+      // Fechar o modal se não houver mais empréstimos
+      if (bookLoans.length === 1) {
+        setIsLoansModalOpen(false)
+      }
+    } else {
+      toast.error(result.error || "Erro ao devolver livro")
+    }
+  }
+
+  // Função para tratar o cancelamento de um empréstimo
+  const handleCancelLoan = async (loanId: string) => {
+    const result = await cancelLoan(loanId)
+    
+    if (result.success) {
+      toast.success("Empréstimo cancelado com sucesso!")
+      // Atualizar a lista de empréstimos
+      setBookLoans(bookLoans.filter(loan => loan.id !== loanId))
+      
+      // Atualizar a lista de livros para refletir a mudança na disponibilidade
+      const updatedBooks = books.map(book => {
+        if (book.id === selectedBookForLoans?.id) {
+          return { ...book, available: book.available + 1 }
+        }
+        return book
+      })
+      setBooks(updatedBooks)
+      
+      // Fechar o modal se não houver mais empréstimos
+      if (bookLoans.length === 1) {
+        setIsLoansModalOpen(false)
+      }
+    } else {
+      toast.error(result.error || "Erro ao cancelar empréstimo")
+    }
   }
 
   const handleCreateOrUpdateBook = async (e: React.FormEvent) => {
@@ -156,6 +239,11 @@ export default function LivrosPage() {
     } else {
       toast.error(result.error || "Erro ao apagar livro.")
     }
+  }
+
+  // Função para verificar se um livro tem empréstimos ativos
+  const hasActiveLoans = (book: any) => {
+    return book.quantity > book.available
   }
 
   return (
@@ -239,7 +327,13 @@ export default function LivrosPage() {
                       type="number"
                       placeholder="Digite a quantidade"
                       value={formBook.quantity}
-                      onChange={(e) => setFormBook({ ...formBook, quantity: parseInt(e.target.value) })}
+                      onChange={(e) => {
+                        if (isNaN(parseInt(e.target.value))) {
+                          setFormBook({ ...formBook, quantity: 1 })
+                          return
+                        }
+                        setFormBook({ ...formBook, quantity: parseInt(e.target.value) })
+                      }}
                       min={1}
                     />
                   </div>
@@ -287,6 +381,20 @@ export default function LivrosPage() {
                         <div>{book.quantity}</div>
                         <div>{book.available}</div>
                         <div className="flex gap-2">
+                          {hasActiveLoans(book) && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => openLoansModal(book)}
+                              title="Ver empréstimos"
+                              className="text-blue-600"
+                            >
+                              <BookOpen className="h-4 w-4" />
+                              <Badge className="absolute top-0 right-0 h-4 w-4 p-0 flex items-center justify-center text-[10px]" variant="destructive">
+                                {book.quantity - book.available}
+                              </Badge>
+                            </Button>
+                          )}
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -311,6 +419,78 @@ export default function LivrosPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Modal para ver empréstimos do livro */}
+          <Dialog open={isLoansModalOpen} onOpenChange={setIsLoansModalOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  Empréstimos de: {selectedBookForLoans?.title}
+                </DialogTitle>
+              </DialogHeader>
+              
+              {isLoadingLoans ? (
+                <div className="py-4 text-center">Carregando empréstimos...</div>
+              ) : bookLoans.length === 0 ? (
+                <div className="py-4 text-center">Nenhum empréstimo ativo para este livro.</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-5 gap-2 text-sm font-medium text-muted-foreground">
+                    <div className="col-span-2">Aluno</div>
+                    <div>Data Empréstimo</div>
+                    <div>Data Devolução</div>
+                    <div>Ações</div>
+                  </div>
+                  <Separator />
+                  {bookLoans.map((loan) => (
+                    <div key={loan.id} className="grid grid-cols-5 items-center gap-2 text-sm">
+                      <div className="col-span-2">
+                        <div className="font-medium">{loan.student.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Matrícula: {loan.student.enrollment}
+                        </div>
+                      </div>
+                      <div>
+                        {new Date(loan.loanDate).toLocaleDateString('pt-BR')}
+                      </div>
+                      <div>
+                        <div>{new Date(loan.returnDueDate).toLocaleDateString('pt-BR')}</div>
+                        <Badge
+                          variant={new Date(loan.returnDueDate) < new Date() ? "destructive" : "outline"}
+                          className="mt-1"
+                        >
+                          {new Date(loan.returnDueDate) < new Date() ? "Atrasado" : "Em dia"}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleReturnLoan(loan.id)}
+                          title="Devolver"
+                        >
+                          Devolver
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-red-600"
+                          onClick={() => handleCancelLoan(loan.id)}
+                          title="Cancelar"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setIsLoansModalOpen(false)}>Fechar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </SidebarInset>
     </SidebarProvider>

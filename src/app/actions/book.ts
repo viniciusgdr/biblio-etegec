@@ -20,10 +20,12 @@ export async function getBooks() {
 
 export async function createBook(data: { isbn: string; title: string; author: string; year: string; quantity?: number }) {
   try {
+    const quantity = data.quantity ? parseInt(data.quantity.toString()) : 1
     const book = await prisma.book.create({
       data: {
         ...data,
-        quantity: data.quantity ? parseInt(data.quantity.toString()) : 1
+        quantity,
+        available: quantity
       }
     });
     
@@ -37,11 +39,21 @@ export async function createBook(data: { isbn: string; title: string; author: st
 
 export async function updateBook(id: string, data: { title: string; author: string; year: string; quantity?: number }) {
   try {
+    const quantity = data.quantity ? parseInt(data.quantity.toString()) : 1
+    const existingBook = await prisma.book.findUnique({
+      where: { id }
+    });
+    if (!existingBook) {
+      return { success: false, error: "Book not found" };
+    }
+
     const book = await prisma.book.update({
       where: { id },
       data: {
         ...data,
-        quantity: data.quantity ? parseInt(data.quantity.toString()) : undefined
+        quantity,
+        // Se a quantidade foi alterada, atualiza a quantidade disponível
+        available: existingBook.available + (quantity - existingBook.quantity)
       }
     });
     
