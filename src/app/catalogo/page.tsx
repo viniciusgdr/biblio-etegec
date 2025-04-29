@@ -16,7 +16,6 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,

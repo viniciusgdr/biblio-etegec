@@ -36,7 +36,6 @@ import { cancelLoan, createLoan, getActiveLoans, returnLoan, searchBooks, search
 import { approveReservation, getPendingBookReservations, rejectReservation } from "@/app/actions/reservation"
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
