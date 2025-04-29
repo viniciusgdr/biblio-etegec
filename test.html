@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Biblioteca</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="root"></div>
+    <script type="text/babel">
+        const App = () => {
+            const [livros, setLivros] = React.useState(JSON.parse(localStorage.getItem('livros')) || []);
+            const [alunos, setAlunos] = React.useState(JSON.parse(localStorage.getItem('alunos')) || []);
+            const [emprestimos, setEmprestimos] = React.useState(JSON.parse(localStorage.getItem('emprestimos')) || []);
+            const [formLivro, setFormLivro] = React.useState({ isbn: '', titulo: '', autor: '', ano: '' });
+            const [formAluno, setFormAluno] = React.useState({ matricula: '', nome: '' });
+            const [formEmprestimo, setFormEmprestimo] = React.useState({ isbn: '', matricula: '' });
+            const [mensagem, setMensagem] = React.useState('');
+            const [abaAtiva, setAbaAtiva] = React.useState('emprestimos');
+            const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+            const [loginForm, setLoginForm] = React.useState({ login: '', senha: '' });
+
+            React.useEffect(() => {
+                localStorage.setItem('livros', JSON.stringify(livros));
+                localStorage.setItem('alunos', JSON.stringify(alunos));
+                localStorage.setItem('emprestimos', JSON.stringify(emprestimos));
+            }, [livros, alunos, emprestimos]);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (loginForm.login === 'biblioteca' && loginForm.senha === '2025') {
+                    setIsAuthenticated(true);
+                    setMensagem('Login realizado com sucesso!');
+                    setLoginForm({ login: '', senha: '' });
+                } else {
+                    setMensagem('Login ou senha incorretos.');
+                }
+            };
+
+            const handleLogout = () => {
+                setIsAuthenticated(false);
+                setMensagem('Logout realizado com sucesso!');
+                setAbaAtiva('emprestimos');
+            };
+
+            const cadastrarLivro = (e) => {
+                e.preventDefault();
+                if (!formLivro.isbn || !formLivro.titulo || !formLivro.autor || !formLivro.ano) {
+                    setMensagem('Preencha todos os campos do livro!');
+                    return;
+                }
+                setLivros([...livros, { ...formLivro, disponivel: true }]);
+                setFormLivro({ isbn: '', titulo: '', autor: '', ano: '' });
+                setMensagem('Livro cadastrado com sucesso!');
+            };
+
+            const apagarLivro = (isbn) => {
+                const livroEmprestado = emprestimos.some(emp => emp.livro.isbn === isbn && !emp.devolvido);
+                if (livroEmprestado) {
+                    setMensagem('Não é possível apagar o livro. Ele está emprestado.');
+                    return;
+                }
+                setLivros(livros.filter(livro => livro.isbn !== isbn));
+                setMensagem('Livro apagado com sucesso!');
+            };
+
+            const cadastrarAluno = (e) => {
+                e.preventDefault();
+                if (!formAluno.matricula || !formAluno.nome) {
+                    setMensagem('Preencha todos os campos do aluno!');
+                    return;
+                }
+                setAlunos([...alunos, { ...formAluno }]);
+                setFormAluno({ matricula: '', nome: '' });
+                setMensagem('Aluno cadastrado com sucesso!');
+            };
+
+            const apagarAluno = (matricula) => {
+                const emprestimoAtivo = emprestimos.some(emp => emp.aluno.matricula === matricula && !emp.devolvido);
+                if (emprestimoAtivo) {
+                    setMensagem('Não é possível apagar o aluno. Há empréstimos ativos associados.');
+                    return;
+                }
+                setAlunos(alunos.filter(aluno => aluno.matricula !== matricula));
+                setMensagem('Aluno apagado com sucesso!');
+            };
+
+            const realizarEmprestimo = (e) => {
+                e.preventDefault();
+                if (!formEmprestimo.isbn || !formEmprestimo.matricula) {
+                    setMensagem('Preencha todos os campos do empréstimo!');
+                    return;
+                }
+                const livro = livros.find(l => l.isbn === formEmprestimo.isbn && l.disponivel);
+                const aluno = alunos.find(a => a.matricula === formEmprestimo.matricula);
+                if (!livro) {
+                    setMensagem('Livro não encontrado ou indisponível.');
+                    return;
+                }
+                if (!aluno) {
+                    setMensagem('Aluno não encontrado.');
+                    return;
+                }
+                const dataEmprestimo = new Date();
+                const dataDevolucao = new Date(dataEmprestimo);
+                dataDevolucao.setDate(dataEmprestimo.getDate() + 7);
+                setLivros(livros.map(l => l.isbn === livro.isbn ? { ...l, disponivel: false } : l));
+                setEmprestimos([...emprestimos, { livro, aluno, dataEmprestimo, dataDevolucao, devolvido: false }]);
+                setFormEmprestimo({ isbn: '', matricula: '' });
+                setMensagem('Empréstimo realizado com sucesso!');
+            };
+
+            const devolverLivro = (isbn, index) => {
+                const emprestimo = emprestimos[index];
+                if (!emprestimo || emprestimo.livro.isbn !== isbn || emprestimo.devolvido) {
+                    setMensagem('Empréstimo não encontrado ou livro já devolvido.');
+                    return;
+                }
+                setLivros(livros.map(l => l.isbn === isbn ? { ...l, disponivel: true } : l));
+                setEmprestimos(emprestimos.map((e, i) => i === index ? { ...e, devolvido: true, dataDevolucaoReal: new Date() } : e));
+                setMensagem(Livro '${emprestimo.livro.titulo}' devolvido com sucesso!);
+            };
+
+            const cancelarEmprestimo = (index) => {
+                const emprestimo = emprestimos[index];
+                if (!emprestimo || emprestimo.devolvido) {
+                    setMensagem('Empréstimo não encontrado ou já cancelado.');
+                    return;
+                }
+                setLivros(livros.map(l => l.isbn === emprestimo.livro.isbn ? { ...l, disponivel: true } : l));
+                setEmprestimos(emprestimos.filter((_, i) => i !== index));
+                setMensagem(Empréstimo do livro '${emprestimo.livro.titulo}' cancelado com sucesso!);
+            };
+
+            const apagarHistorico = () => {
+                setEmprestimos([]);
+                setMensagem('Histórico de empréstimos apagado com sucesso!');
+            };
+
+            if (!isAuthenticated) {
+                return (
+                    <div className="container mx-auto p-4">
+                        <h1 className="text-3xl font-bold text-center mb-6">Sistema de Biblioteca</h1>
+                        {mensagem && (
+                            <div className={p-4 rounded mb-4 ${mensagem.includes('incorretos') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}}>
+                                {mensagem}
+                            </div>
+                        )}
+                        <div className="bg-white p-6 rounded shadow max-w-md mx-auto">
+                            <h2 className="text-2xl font-semibold mb-4">Login do Administrador</h2>
+                            <input
+                                type="text"
+                                placeholder="Login"
+                                value={loginForm.login}
+                                onChange={(e) => setLoginForm({ ...loginForm, login: e.target.value })}
+                                className="border p-2 mb-2 w-full"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Senha"
+                                value={loginForm.senha}
+                                onChange={(e) => setLoginForm({ ...loginForm, senha: e.target.value })}
+                                className="border p-2 mb-2 w-full"
+                            />
+                            <button
+                                onClick={handleLogin}
+                                className="bg-blue-500 text-white px-4 py-2 rounded w-full"
+                            >
+                                Entrar
+                            </button>
+                        </div>
+                        <div className="mt-6">
+                            <h2 className="text-2xl font-semibold mb-4">Realizar Empréstimo</h2>
+                            <div className="bg-white p-4 rounded shadow mb-6">
+                                <input
+                                    type="text"
+                                    placeholder="ISBN do Livro"
+                                    value={formEmprestimo.isbn}
+                                    onChange={(e) => setFormEmprestimo({ ...formEmprestimo, isbn: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Matrícula do Aluno"
+                                    value={formEmprestimo.matricula}
+                                    onChange={(e) => setFormEmprestimo({ ...formEmprestimo, matricula: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <button
+                                    onClick={realizarEmprestimo}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                                >
+                                    Realizar Empréstimo
+                                </button>
+                            </div>
+                            <h2 className="text-2xl font-semibold mb-4">Livros Disponíveis</h2>
+                            {livros.filter(livro => livro.disponivel).length === 0 ? (
+                                <p>Nenhum livro disponível no momento.</p>
+                            ) : (
+                                <table className="w-full bg-white rounded shadow">
+                                    <thead>
+                                        <tr className="bg-gray-200">
+                                            <th className="p-2">ISBN</th>
+                                            <th className="p-2">Título</th>
+                                            <th className="p-2">Autor</th>
+                                            <th className="p-2">Ano</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {livros.filter(livro => livro.disponivel).map(livro => (
+                                            <tr key={livro.isbn}>
+                                                <td className="p-2">{livro.isbn}</td>
+                                                <td className="p-2">{livro.titulo}</td>
+                                                <td className="p-2">{livro.autor}</td>
+                                                <td className="p-2">{livro.ano}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container mx-auto p-4">
+                    <div className="flex justify-between items-center mb-6">
+                        <h1 className="text-3xl font-bold">Sistema de Biblioteca</h1>
+                        <button
+                            onClick={handleLogout}
+                            className="bg-red-500 text-white px-4 py-2 rounded"
+                        >
+                            Sair
+                        </button>
+                    </div>
+                    {mensagem && (
+                        <div className="bg-green-100 text-green-700 p-4 rounded mb-4">{mensagem}</div>
+                    )}
+                    <div className="flex mb-4">
+                        <button
+                            className={px-4 py-2 mr-2 ${abaAtiva === 'livros' ? 'bg-blue-500 text-white' : 'bg-gray-200'}}
+                            onClick={() => setAbaAtiva('livros')}
+                        >
+                            Livros
+                        </button>
+                        <button
+                            className={px-4 py-2 mr-2 ${abaAtiva === 'alunos' ? 'bg-blue-500 text-white' : 'bg-gray-200'}}
+                            onClick={() => setAbaAtiva('alunos')}
+                        >
+                            Alunos
+                        </button>
+                        <button
+                            className={px-4 py-2 mr-2 ${abaAtiva === 'emprestimos' ? 'bg-blue-500 text-white' : 'bg-gray-200'}}
+                            onClick={() => setAbaAtiva('emprestimos')}
+                        >
+                            Empréstimos
+                        </button>
+                        <button
+                            className={px-4 py-2 ${abaAtiva === 'historico' ? 'bg-blue-500 text-white' : 'bg-gray-200'}}
+                            onClick={() => setAbaAtiva('historico')}
+                        >
+                            Histórico de Empréstimos
+                        </button>
+                    </div>
+
+                    {abaAtiva === 'livros' && (
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-4">Cadastrar Livro</h2>
+                            <div className="bg-white p-4 rounded shadow mb-6">
+                                <input
+                                    type="text"
+                                    placeholder="ISBN"
+                                    value={formLivro.isbn}
+                                    onChange={(e) => setFormLivro({ ...formLivro, isbn: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Título"
+                                    value={formLivro.titulo}
+                                    onChange={(e) => setFormLivro({ ...formLivro, titulo: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Autor"
+                                    value={formLivro.autor}
+                                    onChange={(e) => setFormLivro({ ...formLivro, autor: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <input
+                                    type="number"
+                                    placeholder="Ano"
+                                    value={formLivro.ano}
+                                    onChange={(e) => setFormLivro({ ...formLivro, ano: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <button
+                                    onClick={cadastrarLivro}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                                >
+                                    Cadastrar Livro
+                                </button>
+                            </div>
+                            <h2 className="text-2xl font-semibold mb-4">Livros Cadastrados</h2>
+                            {livros.length === 0 ? (
+                                <p>Nenhum livro cadastrado.</p>
+                            ) : (
+                                <table className="w-full bg-white rounded shadow">
+                                    <thead>
+                                        <tr className="bg-gray-200">
+                                            <th className="p-2">ISBN</th>
+                                            <th className="p-2">Título</th>
+                                            <th className="p-2">Autor</th>
+                                            <th className="p-2">Ano</th>
+                                            <th className="p-2">Status</th>
+                                            <th className="p-2">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {livros.map(livro => (
+                                            <tr key={livro.isbn}>
+                                                <td className="p-2">{livro.isbn}</td>
+                                                <td className="p-2">{livro.titulo}</td>
+                                                <td className="p-2">{livro.autor}</td>
+                                                <td className="p-2">{livro.ano}</td>
+                                                <td className="p-2">{livro.disponivel ? 'Disponível' : 'Emprestado'}</td>
+                                                <td className="p-2">
+                                                    <button
+                                                        onClick={() => apagarLivro(livro.isbn)}
+                                                        className="bg-red-500 text-white px-2 py-1 rounded"
+                                                    >
+                                                        Apagar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    )}
+
+                    {abaAtiva === 'alunos' && (
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-4">Cadastrar Aluno</h2>
+                            <div className="bg-white p-4 rounded shadow mb-6">
+                                <input
+                                    type="text"
+                                    placeholder="Matrícula"
+                                    value={formAluno.matricula}
+                                    onChange={(e) => setFormAluno({ ...formAluno, matricula: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Nome"
+                                    value={formAluno.nome}
+                                    onChange={(e) => setFormAluno({ ...formAluno, nome: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <button
+                                    onClick={cadastrarAluno}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                                >
+                                    Cadastrar Aluno
+                                </button>
+                            </div>
+                            <h2 className="text-2xl font-semibold mb-4">Alunos Cadastrados</h2>
+                            {alunos.length === 0 ? (
+                                <p>Nenhum aluno cadastrado.</p>
+                            ) : (
+                                <table className="w-full bg-white rounded shadow">
+                                    <thead>
+                                        <tr className="bg-gray-200">
+                                            <th className="p-2">Matrícula</th>
+                                            <th className="p-2">Nome</th>
+                                            <th className="p-2">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {alunos.map(aluno => (
+                                            <tr key={aluno.matricula}>
+                                                <td className="p-2">{aluno.matricula}</td>
+                                                <td className="p-2">{aluno.nome}</td>
+                                                <td className="p-2">
+                                                    <button
+                                                        onClick={() => apagarAluno(aluno.matricula)}
+                                                        className="bg-red-500 text-white px-2 py-1 rounded"
+                                                    >
+                                                        Apagar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    )}
+
+                    {abaAtiva === 'emprestimos' && (
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-4">Realizar Empréstimo</h2>
+                            <div className="bg-white p-4 rounded shadow mb-6">
+                                <input
+                                    type="text"
+                                    placeholder="ISBN do Livro"
+                                    value={formEmprestimo.isbn}
+                                    onChange={(e) => setFormEmprestimo({ ...formEmprestimo, isbn: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Matrícula do Aluno"
+                                    value={formEmprestimo.matricula}
+                                    onChange={(e) => setFormEmprestimo({ ...formEmprestimo, matricula: e.target.value })}
+                                    className="border p-2 mb-2 w-full"
+                                />
+                                <button
+                                    onClick={realizarEmprestimo}
+                                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                                >
+                                    Realizar Empréstimo
+                                </button>
+                            </div>
+                            <h2 className="text-2xl font-semibold mb-4">Empréstimos Ativos</h2>
+                            {emprestimos.filter(emp => !emp.devolvido).length === 0 ? (
+                                <p>Nenhum empréstimo ativo.</p>
+                            ) : (
+                                <table className="w-full bg-white rounded shadow">
+                                    <thead>
+                                        <tr className="bg-gray-200">
+                                            <th className="p-2">Livro</th>
+                                            <th className="p-2">Aluno</th>
+                                            <th className="p-2">Data Empréstimo</th>
+                                            <th className="p-2">Data Devolução Prevista</th>
+                                            <th className="p-2">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {emprestimos.map((emp, index) => !emp.devolvido && (
+                                            <tr key={index}>
+                                                <td className="p-2">{emp.livro.titulo}</td>
+                                                <td className="p-2">{emp.aluno.nome}</td>
+                                                <td className="p-2">{new Date(emp.dataEmprestimo).toLocaleDateString()}</td>
+                                                <td className="p-2">{new Date(emp.dataDevolucao).toLocaleDateString()}</td>
+                                                <td className="p-2">
+                                                    <button
+                                                        onClick={() => devolverLivro(emp.livro.isbn, index)}
+                                                        className="bg-red-500 text-white px-2 py-1 rounded mr-2"
+                                                    >
+                                                        Devolver
+                                                    </button>
+                                                    <button
+                                                        onClick={() => cancelarEmprestimo(index)}
+                                                        className="bg-yellow-500 text-white px-2 py-1 rounded"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    )}
+
+                    {abaAtiva === 'historico' && (
+                        <div>
+                            <h2 className="text-2xl font-semibold mb-4">Histórico de Empréstimos</h2>
+                            <button
+                                onClick={apagarHistorico}
+                                className="bg-red-500 text-white px-4 py-2 rounded mb-4"
+                            >
+                                Apagar Histórico
+                            </button>
+                            {emprestimos.length === 0 ? (
+                                <p>Nenhum empréstimo registrado.</p>
+                            ) : (
+                                <table className="w-full bg-white rounded shadow">
+                                    <thead>
+                                        <tr className="bg-gray-200">
+                                            <th className="p-2">Livro</th>
+                                            <th className="p-2">Aluno</th>
+                                            <th className="p-2">Data Empréstimo</th>
+                                            <th className="p-2">Data Devolução Prevista</th>
+                                            <th className="p-2">Data Devolução Real</th>
+                                            <th className="p-2">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {emprestimos.map((emp, index) => (
+                                            <tr key={index}>
+                                                <td className="p-2">{emp.livro.titulo}</td>
+                                                <td className="p-2">{emp.aluno.nome}</td>
+                                                <td className="p-2">{new Date(emp.dataEmprestimo).toLocaleDateString()}</td>
+                                                <td className="p-2">{new Date(emp.dataDevolucao).toLocaleDateString()}</td>
+                                                <td className="p-2">{emp.devolvido ? new Date(emp.dataDevolucaoReal).toLocaleDateString() : '-'}</td>
+                                                <td className="p-2">{emp.devolvido ? 'Devolvido' : 'Emprestado'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
