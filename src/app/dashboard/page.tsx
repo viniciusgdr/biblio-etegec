@@ -102,7 +102,7 @@ export default function Page() {
                 <CardContent>
                   <div className="text-2xl font-bold">{stats?.totalBooks || 0}</div>
                   <p className="text-xs text-muted-foreground">
-                    {stats?.availableBooks || 0} disponíveis, {stats?.loanedBooks || 0} emprestados
+                    {stats?.availableBooks || 0} disponíveis para empréstimo
                   </p>
                 </CardContent>
               </Card>

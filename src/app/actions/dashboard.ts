@@ -13,7 +13,11 @@ export async function getDashboardStats() {
     });
     
     const availableBooks = await prisma.book.count({
-      where: { available: { gt: 0 } }
+      where: {
+        available: {
+          gt: 0
+        }
+      }
     });
 
     // Total de alunos
@@ -88,13 +92,14 @@ export async function getDashboardStats() {
         }
       }
     });
+    console.log(totalBooks, availableBooks)
 
     return { 
       success: true, 
       data: {
         totalBooks: totalBooks._sum.quantity || 0,
         availableBooks,
-        loanedBooks: (totalBooks._sum.quantity || 0) - availableBooks,
+        loanedBooks: totalBooks._sum.quantity! - availableBooks,
         totalStudents,
         studentsWithActiveLoans,
         activeLoans,
