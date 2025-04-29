@@ -50,6 +50,7 @@ export default function CatalogoPage() {
   
   // Estados para reserva
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedBookForReservation, setSelectedBookForReservation] = useState<any>(null)
   const [studentEnrollment, setStudentEnrollment] = useState("")
   const [returnDate, setReturnDate] = useState<Date>(addDays(new Date(), 7))
@@ -91,6 +92,7 @@ export default function CatalogoPage() {
   }
   
   // Função para abrir o modal de reserva
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const openReservationModal = (book: any) => {
     setSelectedBookForReservation(book)
     setIsReservationModalOpen(true)
