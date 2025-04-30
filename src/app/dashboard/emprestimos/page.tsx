@@ -156,6 +156,15 @@ export default function EmprestimosPage() {
     fetchStudents();
   }, [debouncedStudentQuery]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadActiveLoans();
+      loadPendingReservations();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleCreateLoan = async (e: React.FormEvent) => {
     e.preventDefault();
 
