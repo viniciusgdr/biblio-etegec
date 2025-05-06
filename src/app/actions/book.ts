@@ -255,7 +255,7 @@ export async function searchBookByIsbn(isbn: string) {
       success: true, 
       data: {
         title: bookData.Title || '',
-        author: bookData.Authors || bookData.Imprint || '',
+        author: bookData.Authors.length > 0 ? bookData.Authors[0] : bookData.Imprint || bookData.Imprint || '',
         year: bookData.Ano || bookData.Date.includes('-') ? bookData.Date.split('-')[0] : '',
       } 
     };
