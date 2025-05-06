@@ -30,7 +30,7 @@ export default function SignIn() {
         setError('Credenciais inválidas. Por favor, tente novamente.')
       } else {
         toast.success('Login realizado com sucesso!')
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
       }
     } catch {
       toast.error('Ocorreu um erro durante o login. Por favor, tente novamente.')

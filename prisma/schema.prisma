@@ -21,70 +21,86 @@ model User {
 }
 
 model Book {
-  id        String   @id @default(cuid())
-  isbn      String   @unique
+  id        String @id @default(cuid())
+  isbn      String @unique
   title     String
   author    String
   year      String
-  quantity  Int @default(1)
-  available Int @default(1)
+  quantity  Int    @default(1)
+  available Int    @default(1)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  loans Loan[]
+
+  loans      Loan[]
   orderLoans OrderLoan[]
-  
+
   @@map("books")
 }
 
-model Student {
-  id         String   @id @default(cuid())
-  enrollment String   @unique
-  name       String
-  phone      String?
-  
+model Class {
+  id   String @id @default(cuid())
+  name String @unique
+  year String
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  loans Loan[]
+
+  students Student[]
+
+  @@map("classes")
+}
+
+model Student {
+  id         String  @id @default(cuid())
+  enrollment String  @unique
+  name       String
+  phone      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classId String?
+  class   Class?  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  loans      Loan[]
   orderLoans OrderLoan[]
-  
+
   @@map("students")
 }
 
 model Loan {
-  id             String   @id @default(cuid())
-  loanDate       DateTime @default(now())
-  returnDueDate  DateTime
+  id               String    @id @default(cuid())
+  loanDate         DateTime  @default(now())
+  returnDueDate    DateTime
   actualReturnDate DateTime?
-  returned       Boolean  @default(false)
-  
-  bookId  String
-  book    Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  
-  studentId  String
-  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
+  returned         Boolean   @default(false)
+
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("loans")
 }
 
 model OrderLoan {
-  id             String   @id @default(cuid())
-  orderDate      DateTime @default(now())
-  returnDueDate  DateTime
-  
-  bookId  String
-  book    Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  
-  studentId  String
-  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
+  id            String   @id @default(cuid())
+  orderDate     DateTime @default(now())
+  returnDueDate DateTime
+
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("order_loans")
 }

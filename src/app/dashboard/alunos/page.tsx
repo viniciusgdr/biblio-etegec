@@ -30,7 +30,14 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog"
-import { createStudent, deleteStudent, getStudentByEnrollment, getStudents, updateStudent } from "@/app/actions/student"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { createStudent, deleteStudent, getAvailableClasses, getStudentByEnrollment, getStudents, updateStudent } from "@/app/actions/student"
 
 export default function AlunosPage() {
   const [students, setStudents] = useState<{
@@ -38,13 +45,28 @@ export default function AlunosPage() {
     enrollment: string
     name: string
     phone: string | null
+    classId: string | null
+    class?: {
+      id: string
+      name: string
+      year: string
+    } | null
   }[]>([])
+  
   const [formStudent, setFormStudent] = useState<{
     id: string
     enrollment: string
     name: string
     phone: string | null
-  }>({ id: "", enrollment: "", name: "" , phone: null })
+    classId: string | null
+  }>({ id: "", enrollment: "", name: "", phone: null, classId: null })
+  
+  const [classes, setClasses] = useState<{
+    id: string
+    name: string
+    year: string
+  }[]>([])
+  
   const [isEditMode, setIsEditMode] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -87,6 +109,18 @@ export default function AlunosPage() {
     loadStudents()
   }, [debouncedQuery, currentPage])
 
+  // Efeito para carregar turmas disponíveis
+  useEffect(() => {
+    async function loadClasses() {
+      const result = await getAvailableClasses();
+      if (result.success) {
+        setClasses(result.data || []);
+      }
+    }
+    
+    loadClasses();
+  }, []);
+
   // Função para lidar com a mudança de página
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages || page === currentPage) return
@@ -98,12 +132,24 @@ export default function AlunosPage() {
     enrollment: string
     name: string
     phone: string | null
+    classId: string | null
+    class?: {
+      id: string
+      name: string
+      year: string
+    } | null
   } | null) => {
     if (student) {
-      setFormStudent(student)
+      setFormStudent({
+        id: student.id,
+        enrollment: student.enrollment,
+        name: student.name,
+        phone: student.phone,
+        classId: student.classId
+      })
       setIsEditMode(true)
     } else {
-      setFormStudent({ id: "", enrollment: "", name: "", phone: null })
+      setFormStudent({ id: "", enrollment: "", name: "", phone: null, classId: null })
       setIsEditMode(false)
     }
     setIsModalOpen(true)
@@ -124,7 +170,8 @@ export default function AlunosPage() {
     if (isEditMode) {
       const result = await updateStudent(formStudent.id, { 
         name: formStudent.name, 
-        phone: formStudent.phone 
+        phone: formStudent.phone,
+        classId: formStudent.classId
       })
       
       if (result.success) {
@@ -153,7 +200,8 @@ export default function AlunosPage() {
       const result = await createStudent({
         enrollment: formStudent.enrollment,
         name: formStudent.name,
-        phone: formStudent.phone || undefined
+        phone: formStudent.phone || undefined,
+        classId: formStudent.classId || undefined
       })
       
       if (result.success) {
@@ -317,6 +365,28 @@ export default function AlunosPage() {
                       onChange={(e) => setFormStudent({ ...formStudent, phone: e.target.value })}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="class">Turma</Label>
+                    <Select 
+                      value={formStudent.classId || "none"} 
+                      onValueChange={(value) => setFormStudent({ 
+                        ...formStudent, 
+                        classId: value === "none" ? null : value 
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma turma" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem turma</SelectItem>
+                        {classes.map((classItem) => (
+                          <SelectItem key={classItem.id} value={classItem.id}>
+                            {classItem.year} - {classItem.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex justify-end gap-2">
                     <DialogClose asChild>
                       <Button type="button" variant="outline">Cancelar</Button>
@@ -356,19 +426,21 @@ export default function AlunosPage() {
                 </p>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-4 gap-4 text-sm font-medium text-muted-foreground">
+                  <div className="grid grid-cols-5 gap-4 text-sm font-medium text-muted-foreground">
                     <div>Matrícula</div>
                     <div>Nome</div>
                     <div>Telefone</div>
+                    <div>Turma</div>
                     <div>Ações</div>
                   </div>
                   <Separator />
                   <div className="max-h-[500px] space-y-2 overflow-auto">
                     {students.map((student) => (
-                      <div key={student.id} className="grid grid-cols-4 items-center gap-4 text-sm">
+                      <div key={student.id} className="grid grid-cols-5 items-center gap-4 text-sm">
                         <div>{student.enrollment}</div>
                         <div>{student.name}</div>
                         <div>{student.phone || "—"}</div>
+                        <div>{student.class ? `${student.class.year} - ${student.class.name}` : "—"}</div>
                         <div className="flex gap-2">
                           <Button 
                             variant="ghost" 

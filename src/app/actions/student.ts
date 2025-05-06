@@ -25,6 +25,9 @@ export async function getStudents(query = "", page = 1, limit = 10) {
         take: limit,
         orderBy: {
           name: 'asc'
+        },
+        include: {
+          class: true
         }
       }),
       prisma.student.count({
@@ -48,7 +51,12 @@ export async function getStudents(query = "", page = 1, limit = 10) {
   }
 }
 
-export async function createStudent(data: { enrollment: string; name: string; phone?: string }) {
+export async function createStudent(data: { 
+  enrollment: string; 
+  name: string; 
+  phone?: string;
+  classId?: string;
+}) {
   try {
     const student = await prisma.student.create({
       data
@@ -62,7 +70,11 @@ export async function createStudent(data: { enrollment: string; name: string; ph
   }
 }
 
-export async function updateStudent(id: string, data: { name: string; phone: string | null }) {
+export async function updateStudent(id: string, data: { 
+  name: string; 
+  phone: string | null;
+  classId?: string | null;
+}) {
   try {
     const student = await prisma.student.update({
       where: { id },
@@ -116,5 +128,21 @@ export async function getStudentByEnrollment(enrollment: string) {
   } catch (error) {
     console.error("Failed to fetch student:", error);
     return { success: false, error: "Failed to find student" };
+  }
+}
+
+export async function getAvailableClasses() {
+  try {
+    const classes = await prisma.class.findMany({
+      orderBy: [
+        { year: 'desc' },
+        { name: 'asc' }
+      ]
+    });
+    
+    return { success: true, data: classes };
+  } catch (error) {
+    console.error("Failed to fetch classes:", error);
+    return { success: false, error: "Failed to load classes" };
   }
 }
