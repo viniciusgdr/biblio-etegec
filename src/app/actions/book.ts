@@ -208,3 +208,59 @@ export async function getPublicAvailableBooks(query = "", page = 1, limit = 10) 
     return { success: false, error: "Failed to load books" };
   }
 }
+
+export async function searchBookByIsbn(isbn: string) {
+  try {
+    // Remove any non-numeric characters from ISBN
+    const cleanedIsbn = isbn.replace(/\D/g, '');
+    
+    if (!cleanedIsbn || cleanedIsbn.length < 10) {
+      return { success: false, error: "ISBN inválido" };
+    }
+
+    const response = await fetch("https://isbn-search-br.search.windows.net/indexes/isbn-index/docs/search?api-version=2016-09-01", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "accept-language": "pt-BR,pt;q=0.9",
+        "api-key": "100216A23C5AEE390338BBD19EA86D29",
+        "content-type": "application/json; charset=UTF-8",
+        "Referer": "https://www.cblservicos.org.br/",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
+      },
+      body: JSON.stringify({
+        "searchMode": "any",
+        "searchFields": "FormattedKey,RowKey",
+        "queryType": "full",
+        "search": cleanedIsbn,
+        "top": 1,
+        "select": "Authors,Date,Imprint,Title,Subtitle,Ano,IdiomasObra",
+        "skip": 0,
+        "count": true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.value || data.value.length === 0) {
+      return { success: false, error: "Livro não encontrado pelo ISBN" };
+    }
+
+    const bookData = data.value[0];
+    return { 
+      success: true, 
+      data: {
+        title: bookData.Title || '',
+        author: bookData.Authors || bookData.Imprint || '',
+        year: bookData.Ano || bookData.Date.includes('-') ? bookData.Date.split('-')[0] : '',
+      } 
+    };
+  } catch (error) {
+    console.error("Failed to fetch book by ISBN:", error);
+    return { success: false, error: "Erro ao buscar informações do livro" };
+  }
+}

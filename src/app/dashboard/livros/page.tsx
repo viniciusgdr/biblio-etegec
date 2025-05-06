@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { PlusCircle, Pencil, Trash2, BookOpen, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { PlusCircle, Pencil, Trash2, BookOpen, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -32,7 +32,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { createBook, deleteBook, getBookByIsbn, getBooks, updateBook } from "@/app/actions/book"
+import { createBook, deleteBook, getBookByIsbn, getBooks, searchBookByIsbn, updateBook } from "@/app/actions/book"
 import { cancelLoan, getActiveBookLoans, returnLoan } from "@/app/actions/loan"
 import {
   Select,
@@ -81,6 +81,9 @@ export default function LivrosPage() {
   
   // Estado para filtro de disponibilidade
   const [availabilityFilter, setAvailabilityFilter] = useState("all")
+  
+  // Estado para loading do ISBN
+  const [isbnLoading, setIsbnLoading] = useState(false)
   
   // Efeito para debounce da busca
   useEffect(() => {
@@ -367,6 +370,32 @@ export default function LivrosPage() {
     )
   }
 
+  // Função para buscar dados do livro pelo ISBN
+  const handleIsbnBlur = async (isbn: string) => {
+    if (!isbn || isbn.trim().length < 10 || isEditMode) return;
+    
+    setIsbnLoading(true);
+    const result = await searchBookByIsbn(isbn);
+    
+    if (result.success && result.data) {
+      setFormBook(prev => ({
+        ...prev,
+        title: result.data.title,
+        author: result.data.author,
+        year: result.data.year
+      }));
+      toast.success("Dados do livro carregados com sucesso!");
+    } else if (result.error) {
+      toast.error(result.error);
+    }
+    setIsbnLoading(false);
+  };
+
+  // Função para lidar com a mudança do ISBN
+  const handleIsbnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormBook({ ...formBook, isbn: e.target.value });
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -406,13 +435,26 @@ export default function LivrosPage() {
                 <form onSubmit={handleCreateOrUpdateBook} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="isbn">ISBN</Label>
-                    <Input 
-                      id="isbn"
-                      placeholder="Digite o ISBN"
-                      value={formBook.isbn}
-                      onChange={(e) => setFormBook({ ...formBook, isbn: e.target.value })}
-                      disabled={isEditMode}
-                    />
+                    <div className="relative">
+                      <Input 
+                        id="isbn"
+                        placeholder="Digite o ISBN"
+                        value={formBook.isbn}
+                        onChange={handleIsbnChange}
+                        disabled={isEditMode || isbnLoading}
+                      />
+                      {isbnLoading && (
+                        <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
+                      )}
+                    </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleIsbnBlur(formBook.isbn)}
+                        disabled={isEditMode || isbnLoading}
+                      >
+                        Buscar
+                      </Button>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="title">Título</Label>
